@@ -142,7 +142,7 @@ def train(data_loader, validation_loader, model, optimizer, scheduler, total_epo
                             'optimizer': optimizer.state_dict()},
                             model_save_path)
 
-            early_stopping(val_loss,model)
+            early_stopping(avg_val_loss, model)
 
             if early_stopping.early_stop:
                 print("Early stopping")
@@ -187,7 +187,7 @@ if __name__ == '__main__':
         sets.pin_memory = True
         
     #EarlyStopping
-    patience = 300
+    patience = 5
     
     # Set fixed random number seed
     torch.manual_seed(42)
