@@ -116,7 +116,7 @@ def train(data_loader, validation_loader, model, optimizer, scheduler, total_epo
                 #Printing the ones that the model failed to predict
                 for index, item in enumerate(predicted):
                     if item != val_labels[index]:
-                        log.info(val_img_names[index], " should be ", val_labels[index])
+                        log.info("{} should be {}".format(val_img_names[index], val_labels[index]))
 
                 val_loss = loss_func(val_out_class, val_labels)
                 running_val_loss += val_loss
