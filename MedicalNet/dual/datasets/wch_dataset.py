@@ -80,7 +80,7 @@ class CustomTumorDataset(Dataset):
             # read image and labels
             patient_path = self.paths[idx]
             t1_image_path = list(patient_path.glob("*t1.nii.gz"))
-            print(patient_path)
+            # print(patient_path)
             t2_image_path = list(patient_path.glob("*t2.nii.gz"))
             t1_image_path = t1_image_path[0]
             assert os.path.isfile(t1_image_path)
@@ -205,7 +205,7 @@ class CustomTumorDataset(Dataset):
 
     def __itensity_normalize_one_volume__(self, volume):
         """
-        normalize the itensity of an nd volume based on the mean and std of nonzeor region
+        normalize the itensity of an nd volume based on the mean and std of nonzero region
         inputs:
             volume: the input nd volume
         outputs:
