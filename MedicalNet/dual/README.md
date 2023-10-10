@@ -11,7 +11,7 @@
 `
 
 ### k-fold Cross Validation
-`python3 dualseq_resnet18_train_crossval.py --model resnet --model_depth 18 --resnet_shortcut A --batch_size=20 --input_W=128 --input_H=128 --input_D=128 --n_epochs=150 --data_root="dataset_t1_t2/data_t1_t2_match" --data_root_val="dataset_t1_t2/data_val_t1_t2_match" --learning_rate=0.001 --gpu_id 0
+`python3 dualseq_resnet18_train_crossval.py --model resnet --model_depth 18 --resnet_shortcut A --batch_size=18 --input_W=256 --input_H=256 --input_D=256 --n_epochs=150 --data_root="dataset_t1_t2/data_t1_t2_match" --data_root_val="dataset_t1_t2/data_val_t1_t2_match" --learning_rate=0.001 --gpu_id 0
 `
 
 # Read Me

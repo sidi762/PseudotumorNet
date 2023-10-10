@@ -10,14 +10,14 @@ import time
 from utils.logger import log
 from scipy import ndimage
 import os
-from brain.pseudotumor_classi_net.MedicalNet.dual.datasets.wch_dataset import CustomTumorDataset
+from datasets.wch_dataset import CustomTumorDataset
 from torch.utils.tensorboard import SummaryWriter
 from EarlyStopping_torch import EarlyStopping
 from sklearn.model_selection import KFold
 
 writer = SummaryWriter()
 
-def train(data_loader, validation_loader, model, optimizer, scheduler, total_epochs, save_interval, save_folder, sets, patience):
+def train(data_loader, validation_loader, model, optimizer, scheduler, total_epochs, save_interval, save_folder, sets, patience, fold):
     # settings
     batches_per_epoch = len(data_loader)
     log.info('{} epochs in total, {} batches per epoch'.format(total_epochs, batches_per_epoch))
@@ -25,9 +25,9 @@ def train(data_loader, validation_loader, model, optimizer, scheduler, total_epo
     # initialize the early_stopping object
     early_stopping = EarlyStopping(patience, verbose=True)
 
-    print("Current setting is:")
-    print(sets)
-    print("\n\n")
+    log.info("Current setting is:")
+    log.info(sets)
+    log.info("\n\n")
     if not sets.no_cuda:
         loss_func = loss_func.cuda()
 
@@ -116,7 +116,7 @@ def train(data_loader, validation_loader, model, optimizer, scheduler, total_epo
                 #Printing the ones that the model failed to predict
                 for index, item in enumerate(predicted):
                     if item != val_labels[index]:
-                        print(val_img_names[index], " should be ", val_labels[index])
+                        log.info(val_img_names[index], " should be ", val_labels[index])
 
                 val_loss = loss_func(val_out_class, val_labels)
                 running_val_loss += val_loss
@@ -128,19 +128,19 @@ def train(data_loader, validation_loader, model, optimizer, scheduler, total_epo
             log.info('Validation accuracy {}'.format(val_accuracy))
             writer.add_scalars("Training vs. Validation Loss", {'Train': last_loss, 'Validation': avg_val_loss}, epoch)
             writer.add_scalar("Accuracy/validation", val_accuracy, epoch)
-            if avg_val_loss < best_val_loss:
+            if (avg_val_loss < best_val_loss) or (val_accuracy > 80.0):
                 best_val_loss = avg_val_loss
-            model_save_path = '{}_dualseq_epoch_{}_val_loss_{}_accuracy_{}.pth.tar'.format(save_folder, epoch, avg_val_loss, val_accuracy)
-            model_save_dir = os.path.dirname(model_save_path)
-            if not os.path.exists(model_save_dir):
-                os.makedirs(model_save_dir)
+                model_save_path = '{}_dualseq_fold_{}_epoch_{}_val_loss_{}_accuracy_{}.pth.tar'.format(save_folder, fold, epoch, avg_val_loss, val_accuracy)
+                model_save_dir = os.path.dirname(model_save_path)
+                if not os.path.exists(model_save_dir):
+                    os.makedirs(model_save_dir)
 
-            log.info('Saved checkpoints: epoch = {} avg_val_loss = {} accuracy = {}'.format(epoch, avg_val_loss, val_accuracy))
-            torch.save({'epoch': epoch,
-                        'batch_id': batch_id,
-                        'state_dict': model.state_dict(),
-                        'optimizer': optimizer.state_dict()},
-                        model_save_path)
+                log.info('Saved checkpoints: fold = {} epoch = {} avg_val_loss = {} accuracy = {}'.format(fold, epoch, avg_val_loss, val_accuracy))
+                torch.save({'epoch': epoch,
+                            'batch_id': batch_id,
+                            'state_dict': model.state_dict(),
+                            'optimizer': optimizer.state_dict()},
+                            model_save_path)
 
             early_stopping(val_loss,model)
 
@@ -151,7 +151,7 @@ def train(data_loader, validation_loader, model, optimizer, scheduler, total_epo
 
     
     writer.flush()
-    print('Finished training')
+    log.info('Finished training')
     if sets.ci_test:
         exit()
     return val_accuracy
@@ -173,46 +173,12 @@ if __name__ == '__main__':
         sets.input_H = 28
         sets.input_W = 28
 
-    # getting model
+    # Configuring model
     torch.manual_seed(sets.manual_seed)
     sets.model = 'resnet'
     sets.model_depth = 18
     sets.resnet_shortcut = 'A'
-    model, parameters = generate_model(sets) #3D Resnet 18
-    print (model)
-    # Compile model for faster training
-    # model = torch.compile(model, mode="max-autotune")
-    # optimizer
-    if (not sets.ci_test) and sets.pretrain_path:
-        params = [
-                { 'params': parameters['base_parameters'], 'lr': sets.learning_rate },
-                { 'params': parameters['new_parameters'], 'lr': sets.learning_rate*100 }
-        ]
-    else:
-        params = [{'params': parameters, 'lr': sets.learning_rate}]
-    # optimizer = torch.optim.Adam(params,
-    #                              lr=sets.learning_rate,
-    #                              betas=(0.9,0.999),
-    #                              eps=1e-08,
-    #                              weight_decay=1e-3,
-    #                              amsgrad=False)
-    optimizer = torch.optim.SGD(params, momentum=0.9, weight_decay=1e-3)
-    #scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
-    scheduler = lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
-                                        T_0 = 8,# Number of iterations for the first restart
-                                        T_mult = 1, # A factor increases TiTi​ after a restart
-                                        eta_min = 1e-6) # Minimum learning rate
-
-    # train from resume
-    if sets.resume_path:
-        if os.path.isfile(sets.resume_path):
-            print("=> loading checkpoint '{}'".format(sets.resume_path))
-            checkpoint = torch.load(sets.resume_path)
-            model.load_state_dict(checkpoint['state_dict'], strict=False)
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            print("=> loaded checkpoint '{}' (epoch {})"
-              .format(sets.resume_path, checkpoint['epoch']))
-
+    
     # getting data
     sets.phase = 'train'
     if sets.no_cuda:
@@ -239,6 +205,41 @@ if __name__ == '__main__':
     
     # K-fold Cross Validation model evaluation
     for fold, (train_ids, val_ids) in enumerate(kfold.split(full_dataset)):
+        model, parameters = generate_model(sets) #3D Resnet 18
+        log.info (model)
+        # Compile model for faster training
+        # model = torch.compile(model, mode="max-autotune")
+        # optimizer
+        if (not sets.ci_test) and sets.pretrain_path:
+            params = [
+                    { 'params': parameters['base_parameters'], 'lr': sets.learning_rate },
+                    { 'params': parameters['new_parameters'], 'lr': sets.learning_rate*100 }
+            ]
+        else:
+            params = [{'params': parameters, 'lr': sets.learning_rate}]
+        # optimizer = torch.optim.Adam(params,
+        #                              lr=sets.learning_rate,
+        #                              betas=(0.9,0.999),
+        #                              eps=1e-08,
+        #                              weight_decay=1e-3,
+        #                              amsgrad=False)
+        optimizer = torch.optim.SGD(params, momentum=0.9, weight_decay=1e-3)
+        #scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+        scheduler = lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
+                                            T_0 = 8,# Number of iterations for the first restart
+                                            T_mult = 1, # A factor increases TiTi​ after a restart
+                                            eta_min = 1e-6) # Minimum learning rate
+
+        # train from resume
+        if sets.resume_path:
+            if os.path.isfile(sets.resume_path):
+                log.info("=> loading checkpoint '{}'".format(sets.resume_path))
+                checkpoint = torch.load(sets.resume_path)
+                model.load_state_dict(checkpoint['state_dict'], strict=False)
+                optimizer.load_state_dict(checkpoint['optimizer'])
+                log.info("=> loaded checkpoint '{}' (epoch {})"
+                .format(sets.resume_path, checkpoint['epoch']))
+
         train_subsampler = torch.utils.data.SubsetRandomSampler(train_ids)
         val_subsampler = torch.utils.data.SubsetRandomSampler(val_ids)
     
@@ -249,15 +250,15 @@ if __name__ == '__main__':
                                      sampler=val_subsampler, num_workers=sets.num_workers, 
                                      pin_memory=sets.pin_memory)
         # training
-        results[fold] = train(train_data_loader, val_data_loader, model, optimizer, scheduler, total_epochs=sets.n_epochs, save_interval=sets.save_intervals, save_folder=sets.save_folder, sets=sets, patience=patience)
+        results[fold] = train(train_data_loader, val_data_loader, model, optimizer, scheduler, total_epochs=sets.n_epochs, save_interval=sets.save_intervals, save_folder=sets.save_folder, sets=sets, patience=patience, fold=fold)
     
-    print(f'K-FOLD CROSS VALIDATION RESULTS FOR {k_folds} FOLDS')
-    print('--------------------------------')
+    log.info(f'K-FOLD CROSS VALIDATION RESULTS FOR {k_folds} FOLDS')
+    log.info('--------------------------------')
     sum = 0.0
     for key, value in results.items():
-        print(f'Fold {key}: {value} %')
+        log.info(f'Fold {key}: {value} %')
         sum += value
-    print(f'Average: {sum/len(results.items())} %')
+    log.info(f'Average: {sum/len(results.items())} %')
     
     writer.close()
 

@@ -10,7 +10,7 @@ import sys
 sys.path.append('./MedicalNet/dual')
 import MedicalNet.dual.model as MMModel
 from settings import class_parse_opts
-from brain.pseudotumor_classi_net.MedicalNet.dual.datasets.wch_dataset import CustomTumorDataset
+from MedicalNet.dual.datasets.wch_dataset import CustomTumorDataset
 
 from medcam import medcam
 
@@ -52,18 +52,19 @@ if __name__ == '__main__':
     #classi_sets.resume_path = "resnet_18_dualseq_epoch_5_val_loss_0.5973857045173645_accuracy_76.0.pth.tar"
     #classi_sets.resume_path = "MedicalNet/MedicalNet_dual/trails/models0415/resnet_18_dualseq_epoch_54_val_loss_0.6263759136199951_accuracy_64.0.pth.tar"
     #classi_sets.resume_path = "resnet_18_dualseq_128_epoch_20_val_loss_0.7904279232025146_accuracy_76.0.pth.tar"
-    classi_sets.resume_path = "MedicalNet/dual/resnet_18_dualseq_epoch_81_val_loss_0.006248984485864639_accuracy_100.0.pth.tar"
-    classi_sets.data_list = "data/aug_list.txt"
+    #classi_sets.resume_path = "MedicalNet/dual/resnet_18_dualseq_epoch_81_val_loss_0.006248984485864639_accuracy_100.0.pth.tar"
+    classi_sets.resume_path = "resnet_18_dualseq_fold_0_epoch_112_val_loss_0.3678816258907318_accuracy_83.33333587646484.pth.tar"
+    #classi_sets.data_list = "data/aug_list.txt"
     #classi_sets.data_list = "data/brain_seg_test_list_t1t2.txt"
-    #classi_sets.data_list = "data/brain_seg_test_list.txt"
+    classi_sets.data_list = "data/brain_seg_test_list.txt"
     #classi_sets.data_list = "MedicalNet/MedicalNet_dual/dataset_t1_t2/data_t1_t2_match_train.txt"
     classi_sets.data_root = "data/Preprocessed"
     classi_sets.model_depth = 18
     classi_sets.resnet_shortcut = 'A'
     classi_sets.batch_size = 1
     classi_sets.gpu_id = gpu_id
-    classi_sets.input_W = 128
-    classi_sets.input_H = 128
+    classi_sets.input_W = 256
+    classi_sets.input_H = 256
     classi_sets.input_D = 128
     classi_sets.phase = 'test'
     # Getting model

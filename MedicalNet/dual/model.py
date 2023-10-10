@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 import sys
-from .models import resnet
+from models_def import resnet
 
 
 def generate_model(opt):
