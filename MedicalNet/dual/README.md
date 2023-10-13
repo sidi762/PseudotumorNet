@@ -1,5 +1,3 @@
-<img src="images/logo.png" align=mid />
-
 ### Quick Note for myself
 `python3 dualseq_resnet18_train.py --model resnet --model_depth 18 --resnet_shortcut A --batch_size=1 --input_W=512 --input_D=512 --input_H=20 --n_epochs=200 --data_root="data_t2" --no_cuda
 `
@@ -32,12 +30,17 @@ If you use this code or pre-trained models, please cite the following:
 ```
 
 ### Contents
-1. [Requirements](#Requirements)
-2. [Installation](#Installation)
-3. [Demo](#Demo)
-4. [Experiments](#Experiments)
-5. [TODO](#TODO)
-6. [Acknowledgement](#Acknowledgement)
+- [Read Me](#read-me)
+    - [License](#license)
+    - [Citing MedicalNet](#citing-medicalnet)
+    - [Contents](#contents)
+    - [Requirements](#requirements)
+    - [Installation](#installation)
+    - [Demo](#demo)
+    - [Experiments](#experiments)
+    - [TODO](#todo)
+    - [Acknowledgement](#acknowledgement)
+    - [Contribution](#contribution)
 
 ### Requirements
 - Python 3.10.13

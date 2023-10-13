@@ -89,14 +89,13 @@ class CustomTumorDataset(Dataset):
             self.t2_image_list.append(t2_image_path)
             assert os.path.isfile(t2_image_path)
             class_name  = self.paths[idx].parent.name
-            t1_img = nibabel.load(t1_image_path)  # We have transposed the data from WHD format to DHW
+            t1_img = nibabel.load(t1_image_path)  
             t2_img = nibabel.load(t2_image_path)
             assert t1_img is not None
             assert t2_img is not None
 
             # data processing
-            t1_img_array = self.__training_data_process__(t1_img)
-            t2_img_array = self.__training_data_process__(t2_img)
+            t1_img_array, t2_img_array = self.__training_data_process__(t1_img, t2_img)
 
             # 2 tensor array
             t1_img_array = self.__nii2tensorarray__(t1_img_array)
@@ -132,9 +131,8 @@ class CustomTumorDataset(Dataset):
             assert t2_img is not None
 
             # data processing
-            t1_img_array = self.__testing_data_process__(t1_img)
-            t2_img_array = self.__testing_data_process__(t2_img)
-
+            t1_img_array, t2_img_array = self.__testing_data_process__(t1_img, t2_img)
+        
             # 2 tensor array
             t1_img_array = self.__nii2tensorarray__(t1_img_array)
             t2_img_array = self.__nii2tensorarray__(t2_img_array)
@@ -216,8 +214,10 @@ class CustomTumorDataset(Dataset):
         mean = pixels.mean()
         std  = pixels.std()
         out = (volume - mean)/std
+        out = np.clip(out, -5, 5) # Clip the values to the range [-5, 5]
+        out = (out + 5) / 10 # Rescale the values to the range [0, 1]
         out_random = np.random.normal(0, 1, size = volume.shape)
-        out[volume == 0] = out_random[volume == 0]
+        out[volume == 0] = out_random[volume == 0] # Add Gausian Noise to the zeros
         return out
 
     def __resize_data__(self, data):
@@ -226,7 +226,7 @@ class CustomTumorDataset(Dataset):
         """
         [width, depth, height] = data.shape
         scale = [self.input_W*1.0/width, self.input_D*1.0/depth, self.input_H*1.0/height]
-        data = ndimage.interpolation.zoom(data, scale, order=0)
+        data = ndimage.zoom(data, scale, order=0)
 
         return data
 
@@ -243,27 +243,33 @@ class CustomTumorDataset(Dataset):
         data, label = self.__random_center_crop__ (data, label)
         return data, label
 
-    def __training_data_process__(self, data, label=None):
+    def __training_data_process__(self, data, data2=None, label=None):
         if label is None:
             # For classification
-            # get data from nii and returns an array. According to the documentation,
-            # get_data() is deprecated, consider changing to get_fdata() or numpy.asanyarray(img.dataobj)
-            data = data.get_fdata()
-            #data = data[:,:,:,0]
-
-            # drop out the invalid range
-            data = self.__drop_invalid_range__(data)
-
-            # crop data
-            data = self.__crop_data__(data)
-
-            # resize data
-            data = self.__resize_data__(data)
-
-            # normalization data
-            data = self.__itensity_normalize_one_volume__(data)
-
-            return data
+            if data2: # Process two volumes (T1 and T2 in our case)
+                data = data.get_fdata()
+                data2 = data2.get_fdata()  # get data from nii and returns an array.
+                data, data2 = self.__drop_invalid_range__(data, data2) # drop out the invalid range
+                data, data2 = self.__crop_data__(data, data2) # crop data
+                # resize data
+                data = self.__resize_data__(data) 
+                data2 = self.__resize_data__(data2)
+                # normalization
+                data = self.__itensity_normalize_one_volume__(data)
+                data2 = self.__itensity_normalize_one_volume__(data2)
+                return data, data2
+            else: # For single volume processing
+                data = data.get_fdata()
+                #data = data[:,:,:,0]
+                # drop out the invalid range
+                data = self.__drop_invalid_range__(data)
+                # crop data
+                data = self.__crop_data__(data)
+                # resize data
+                # data = self.__resize_data__(data)
+                # normalization data
+                data = self.__itensity_normalize_one_volume__(data)
+                return data
         else:
             # crop data according net input size
             # For segmentation, WIP
@@ -277,35 +283,44 @@ class CustomTumorDataset(Dataset):
             #data, label = self.__crop_data__(data, label)
 
             # resize data
-            data = self.__resize_data__(data)
-            label = self.__resize_data__(label)
+            # data = self.__resize_data__(data)
+            # label = self.__resize_data__(label)
 
             # normalization datas
             data = self.__itensity_normalize_one_volume__(data)
 
             return data, label
 
-    def __testing_data_process__(self, data, segmentation = False):
+    def __testing_data_process__(self, data, data2=None, crop=False, segmentation=False):
         if segmentation is False:
             # For classification
-            # get data from nii and returns an array. According to the documentation,
-            # get_data() is deprecated, consider changing to get_fdata() or numpy.asanyarray(img.dataobj)
-            data = data.get_fdata()
-            #data = data[:,:,:,0]
-
-            # drop out the invalid range
-            data = self.__drop_invalid_range__(data)
-
-            # crop data
-            #data = self.__crop_data__(data)
-
-            # resize data
-            data = self.__resize_data__(data)
-
-            # normalization
-            data = self.__itensity_normalize_one_volume__(data)
-
-            return data
+            if data2: 
+                # Process two volumes (T1 and T2 in our case)
+                data = data.get_fdata()
+                data2 = data2.get_fdata()  # get data from nii and returns an array.
+                data, data2 = self.__drop_invalid_range__(data, data2) # drop out the invalid range
+                if crop:
+                    data, data2 = self.__crop_data__(data, data2) # crop data
+                # resize data
+                # data = self.__resize_data__(data) 
+                # data2 = self.__resize_data__(data2)
+                # normalization
+                data = self.__itensity_normalize_one_volume__(data)
+                data2 = self.__itensity_normalize_one_volume__(data2)
+                return data, data2
+            else: # For single volume processing
+                # get data from nii and returns an array. 
+                data = data.get_fdata()
+                #data = data[:,:,:,0]
+                # drop out the invalid range
+                data = self.__drop_invalid_range__(data)
+                if crop:
+                    data = self.__crop_data__(data) # crop data
+                # resize data
+                # data = self.__resize_data__(data)
+                # normalization
+                data = self.__itensity_normalize_one_volume__(data)
+                return data
         else:
             # crop data according net input size
             # For segmentation, WIP

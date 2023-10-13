@@ -15,8 +15,6 @@ from torch.utils.tensorboard import SummaryWriter
 from EarlyStopping_torch import EarlyStopping
 from sklearn.model_selection import KFold
 
-writer = SummaryWriter()
-
 def train(data_loader, validation_loader, model, optimizer, scheduler, total_epochs, save_interval, save_folder, sets, patience, fold):
     # settings
     batches_per_epoch = len(data_loader)
@@ -128,7 +126,7 @@ def train(data_loader, validation_loader, model, optimizer, scheduler, total_epo
             log.info('Validation accuracy {}'.format(val_accuracy))
             writer.add_scalars("Training vs. Validation Loss", {'Train': last_loss, 'Validation': avg_val_loss}, epoch)
             writer.add_scalar("Accuracy/validation", val_accuracy, epoch)
-            if (avg_val_loss < best_val_loss) or (val_accuracy > 80.0):
+            if (avg_val_loss < best_val_loss) or (val_accuracy >= 75.0):
                 best_val_loss = avg_val_loss
                 model_save_path = '{}_dualseq_fold_{}_epoch_{}_val_loss_{}_accuracy_{}.pth.tar'.format(save_folder, fold, epoch, avg_val_loss, val_accuracy)
                 model_save_dir = os.path.dirname(model_save_path)
@@ -145,7 +143,7 @@ def train(data_loader, validation_loader, model, optimizer, scheduler, total_epo
             early_stopping(avg_val_loss, model)
 
             if early_stopping.early_stop:
-                print("Early stopping")
+                log.info("Early stopping")
                 break
         #End Validation
 
@@ -187,7 +185,7 @@ if __name__ == '__main__':
         sets.pin_memory = True
         
     #EarlyStopping
-    patience = 5
+    patience = 50
     
     # Set fixed random number seed
     torch.manual_seed(42)
@@ -205,6 +203,7 @@ if __name__ == '__main__':
     
     # K-fold Cross Validation model evaluation
     for fold, (train_ids, val_ids) in enumerate(kfold.split(full_dataset)):
+        writer = SummaryWriter()
         model, parameters = generate_model(sets) #3D Resnet 18
         log.info (model)
         # Compile model for faster training
@@ -251,6 +250,7 @@ if __name__ == '__main__':
                                      pin_memory=sets.pin_memory)
         # training
         results[fold] = train(train_data_loader, val_data_loader, model, optimizer, scheduler, total_epochs=sets.n_epochs, save_interval=sets.save_intervals, save_folder=sets.save_folder, sets=sets, patience=patience, fold=fold)
+        writer.close()
     
     log.info(f'K-FOLD CROSS VALIDATION RESULTS FOR {k_folds} FOLDS')
     log.info('--------------------------------')
@@ -260,7 +260,7 @@ if __name__ == '__main__':
         sum += value
     log.info(f'Average: {sum/len(results.items())} %')
     
-    writer.close()
+    
 
 
     
