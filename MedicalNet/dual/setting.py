@@ -109,6 +109,11 @@ def parse_opts():
         type=int,
         help='Depth of resnet (10 | 18 | 34 | 50 | 101)')
     parser.add_argument(
+        '--convnext_size',
+        default='base',
+        type=str,
+        help='(base | tiny | large | small | xlarge | ')
+    parser.add_argument(
         '--resnet_shortcut',
         default='B',
         type=str,

@@ -1,12 +1,13 @@
 import torch
 from torch import nn
 import sys
-from models_def import resnet
+from models_def import resnet, convnext3d
 
 
 def generate_model(opt):
     assert opt.model in [
-        'resnet'
+        'resnet',
+        'convnext'
     ]
 
     if opt.model == 'resnet':
@@ -68,6 +69,18 @@ def generate_model(opt):
                 shortcut_type=opt.resnet_shortcut,
                 no_cuda=opt.no_cuda,
                 num_seg_classes=opt.n_seg_classes)
+    elif opt.model == 'convnext':
+        assert opt.convnext_size in ['base', 'large', 'small', 'tiny', 'xlarge']
+        if opt.convnext_size == 'base':
+            model = convnext3d.convnext3d_base(in_chans=2)
+        elif opt.convnext_size == 'large':
+            model = convnext3d.convnext3d_large(in_chans=2)
+        elif opt.convnext_size == 'small':
+            model = convnext3d.convnext3d_small(in_chans=2)
+        elif opt.convnext_size == 'tiny':
+            model = convnext3d.convnext3d_tiny(in_chans=2)
+        elif opt.convnext_size == 'xlarge':
+            model = convnext3d.convnext3d_xlarge(in_chans=2)
 
     if not opt.no_cuda:
         if len(opt.gpu_id) > 1:

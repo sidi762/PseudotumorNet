@@ -96,6 +96,9 @@ class CustomTumorDataset(Dataset):
 
             # data processing
             t1_img_array, t2_img_array = self.__training_data_process__(t1_img, t2_img)
+            # t1_after_processing = nibabel.Nifti1Image(t1_img_array, affine)
+            # affine = t1_img.affine
+            # nibabel.save(t1_after_processing, 't1_after_processing.nii.gz')  
 
             # 2 tensor array
             t1_img_array = self.__nii2tensorarray__(t1_img_array)
@@ -132,6 +135,7 @@ class CustomTumorDataset(Dataset):
 
             # data processing
             t1_img_array, t2_img_array = self.__testing_data_process__(t1_img, t2_img)
+            
         
             # 2 tensor array
             t1_img_array = self.__nii2tensorarray__(t1_img_array)
@@ -156,7 +160,16 @@ class CustomTumorDataset(Dataset):
         else:
             return volume[min_z:max_z, min_h:max_h, min_w:max_w]
 
-
+    def __random_flip__(self, data, data2):
+        # Randomly choose whether to flip or not
+        flip = np.random.choice([True, False])
+        
+        # Flip the data along the selected axis if flip is True
+        if flip:
+            data = np.flip(data, axis=1)
+            data2 = np.flip(data2, axis=1)
+        
+        return data, data2
     def __random_center_crop__(self, data, label=None):
         from random import random
         """
@@ -214,10 +227,10 @@ class CustomTumorDataset(Dataset):
         mean = pixels.mean()
         std  = pixels.std()
         out = (volume - mean)/std
-        out = np.clip(out, -5, 5) # Clip the values to the range [-5, 5]
-        out = (out + 5) / 10 # Rescale the values to the range [0, 1]
-        out_random = np.random.normal(0, 1, size = volume.shape)
-        out[volume == 0] = out_random[volume == 0] # Add Gausian Noise to the zeros
+        # out = np.clip(out, -5, 5) # Clip the values to the range [-5, 5]
+        # out = (out + 5) / 10 # Rescale the values to the range [0, 1]
+        # out_random = np.random.normal(0, 1, size = volume.shape)
+        # out[volume == 0] = out_random[volume == 0] # Add Gausian Noise to the zeros
         return out
 
     def __resize_data__(self, data):
@@ -250,10 +263,12 @@ class CustomTumorDataset(Dataset):
                 data = data.get_fdata()
                 data2 = data2.get_fdata()  # get data from nii and returns an array.
                 data, data2 = self.__drop_invalid_range__(data, data2) # drop out the invalid range
-                data, data2 = self.__crop_data__(data, data2) # crop data
+                # data, data2 = self.__crop_data__(data, data2) # crop data
                 # resize data
                 data = self.__resize_data__(data) 
                 data2 = self.__resize_data__(data2)
+                # random flip
+                data, data2 = self.__random_flip__(data, data2)
                 # normalization
                 data = self.__itensity_normalize_one_volume__(data)
                 data2 = self.__itensity_normalize_one_volume__(data2)
@@ -298,9 +313,9 @@ class CustomTumorDataset(Dataset):
                 # Process two volumes (T1 and T2 in our case)
                 data = data.get_fdata()
                 data2 = data2.get_fdata()  # get data from nii and returns an array.
-                data, data2 = self.__drop_invalid_range__(data, data2) # drop out the invalid range
-                if crop:
-                    data, data2 = self.__crop_data__(data, data2) # crop data
+                # data, data2 = self.__drop_invalid_range__(data, data2) # drop out the invalid range
+                # if crop:
+                #     data, data2 = self.__crop_data__(data, data2) # crop data
                 # resize data
                 # data = self.__resize_data__(data) 
                 # data2 = self.__resize_data__(data2)
@@ -313,9 +328,9 @@ class CustomTumorDataset(Dataset):
                 data = data.get_fdata()
                 #data = data[:,:,:,0]
                 # drop out the invalid range
-                data = self.__drop_invalid_range__(data)
-                if crop:
-                    data = self.__crop_data__(data) # crop data
+                # data = self.__drop_invalid_range__(data)
+                # if crop:
+                #     data = self.__crop_data__(data) # crop data
                 # resize data
                 # data = self.__resize_data__(data)
                 # normalization

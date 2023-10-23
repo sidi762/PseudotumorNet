@@ -158,24 +158,14 @@ def train(data_loader, validation_loader, model, optimizer, scheduler, total_epo
 if __name__ == '__main__':
     # settting
     sets = parse_opts()
-    if sets.ci_test:
-        sets.img_list = './toy_data/test_ci.txt'
-        sets.n_epochs = 1
-        sets.no_cuda = True
-        sets.data_root = './toy_data'
-        sets.pretrain_path = ''
-        sets.num_workers = 0
-        sets.model_depth = 10
-        sets.resnet_shortcut = 'A'
-        sets.input_D = 14
-        sets.input_H = 28
-        sets.input_W = 28
 
     # Configuring model
     torch.manual_seed(sets.manual_seed)
-    sets.model = 'resnet'
-    sets.model_depth = 18
-    sets.resnet_shortcut = 'A'
+    
+    # Commented out as this is set in arguments 
+    # sets.model = 'resnet'
+    # sets.model_depth = 34
+    # sets.resnet_shortcut = 'A'
     
     # getting data
     sets.phase = 'train'
@@ -185,7 +175,7 @@ if __name__ == '__main__':
         sets.pin_memory = True
         
     #EarlyStopping
-    patience = 50
+    patience = 300
     
     # Set fixed random number seed
     torch.manual_seed(42)
@@ -222,10 +212,11 @@ if __name__ == '__main__':
         #                              eps=1e-08,
         #                              weight_decay=1e-3,
         #                              amsgrad=False)
-        optimizer = torch.optim.SGD(params, momentum=0.9, weight_decay=1e-3)
-        #scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+        # optimizer = torch.optim.SGD(params, momentum=0.9, weight_decay=1e-3)
+        optimizer = torch.optim.AdamW(params, lr=sets.learning_rate, weight_decay=0.05)
+        # scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
         scheduler = lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
-                                            T_0 = 8,# Number of iterations for the first restart
+                                            T_0 = 10,# Number of iterations for the first restart
                                             T_mult = 1, # A factor increases TiTi​ after a restart
                                             eta_min = 1e-6) # Minimum learning rate
 
