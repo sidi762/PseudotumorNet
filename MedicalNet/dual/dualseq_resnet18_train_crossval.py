@@ -14,12 +14,16 @@ from datasets.wch_dataset import CustomTumorDataset
 from torch.utils.tensorboard import SummaryWriter
 from EarlyStopping_torch import EarlyStopping
 from sklearn.model_selection import KFold
+from datetime import datetime
+
+now = datetime.now() 
+date_time = now.strftime("%Y-%m-%d_%H-%M-%S")
 
 def train(data_loader, validation_loader, model, optimizer, scheduler, total_epochs, save_interval, save_folder, sets, patience, fold):
     # settings
     batches_per_epoch = len(data_loader)
     log.info('{} epochs in total, {} batches per epoch'.format(total_epochs, batches_per_epoch))
-    loss_func = nn.CrossEntropyLoss(ignore_index=-1)
+    loss_func = nn.CrossEntropyLoss()
     # initialize the early_stopping object
     early_stopping = EarlyStopping(patience, verbose=True)
 
@@ -36,7 +40,6 @@ def train(data_loader, validation_loader, model, optimizer, scheduler, total_epo
     for epoch in range(total_epochs):
         log.info('Start epoch {}'.format(epoch))
 
-        scheduler.step()
         current_lr = scheduler.get_last_lr()[0]
         log.info('lr = {}'.format(current_lr))
         writer.add_scalar("LearningRate", current_lr, epoch)
@@ -63,6 +66,7 @@ def train(data_loader, validation_loader, model, optimizer, scheduler, total_epo
             loss = loss_func(out_class, label)
             loss.backward()
             optimizer.step()
+            scheduler.step()
             last_loss = loss.item()
             _, predicted = torch.max(out_class.data, 1)
             correct += (predicted == label).float().sum()
@@ -193,7 +197,12 @@ if __name__ == '__main__':
     
     # K-fold Cross Validation model evaluation
     for fold, (train_ids, val_ids) in enumerate(kfold.split(full_dataset)):
-        writer = SummaryWriter()
+        tb_log_dir = ""
+        if sets.model == 'resnet':
+            tb_log_dir = "runs/"+sets.model+str(sets.model_depth)+"_"+date_time
+        elif sets.model == 'convnext':
+            tb_log_dir = "runs/"+sets.model+sets.convnext_size+"_"+date_time
+        writer = SummaryWriter(log_dir=tb_log_dir)
         model, parameters = generate_model(sets) #3D Resnet 18
         log.info (model)
         # Compile model for faster training
@@ -213,13 +222,18 @@ if __name__ == '__main__':
         #                              weight_decay=1e-3,
         #                              amsgrad=False)
         # optimizer = torch.optim.SGD(params, momentum=0.9, weight_decay=1e-3)
-        optimizer = torch.optim.AdamW(params, lr=sets.learning_rate, weight_decay=0.05)
+        optimizer = torch.optim.AdamW(params, eps=1e-8, lr=sets.learning_rate, weight_decay=0.05)
         # scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
-        scheduler = lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
-                                            T_0 = 10,# Number of iterations for the first restart
-                                            T_mult = 1, # A factor increases TiTi​ after a restart
-                                            eta_min = 1e-6) # Minimum learning rate
+        
+        # scheduler = lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
+        #                                     T_0 = 20,# Number of iterations for the first restart
+        #                                     T_mult = 1, # A factor increases TiTi​ after a restart
+        #                                     eta_min = 1e-6) # Minimum learning rate
+        
+        scheduler = lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=sets.n_epochs, eta_min=1e-6)
 
+       
+        
         # train from resume
         if sets.resume_path:
             if os.path.isfile(sets.resume_path):

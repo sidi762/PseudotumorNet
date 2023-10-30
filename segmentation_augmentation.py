@@ -16,7 +16,9 @@ import os
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
-import MedicalNet.MedicalNet_dual.model as MMModel
+import sys
+sys.path.append('./MedicalNet/dual')
+import MedicalNet.dual.model as MMModel
 
 #All configurations for segmentation and classification
 from settings import class_parse_opts, seg_parse_opts
@@ -26,7 +28,6 @@ import nibabel as nib
 import numpy as np
 from scipy import ndimage
 
-import sys
 sys.path.append('./3D-UNet-seg-test')
 from models import unet3d
 import nii_augmentation as nii_aug
@@ -152,21 +153,8 @@ if __name__ == '__main__':
     [sets.input_D, sets.input_H, sets.input_W] = checkpoint['img_shape']
     sets.n_channels = checkpoint['n_channels']
     sets.n_classes = checkpoint['n_classes']
-    sets.data_list = "data/brain_seg_test_list.txt"
+    #sets.data_list = "data/brain_seg_test_list.txt"
     gpu_id = [2]
-
-    # For classification:
-    torch.manual_seed(classi_sets.manual_seed)
-    classi_sets.model = 'resnet'
-    classi_sets.model_depth = 18
-    classi_sets.resnet_shortcut = 'A'
-    classi_sets.gpu_id = gpu_id
-    classi_sets.input_W = 512
-    classi_sets.input_H = 512
-    classi_sets.input_D = 20
-    classi_sets.data_list = "data/aug_list.txt"
-    model, parameters = MMModel.generate_model(classi_sets) #3D Resnet 18
-
 
     # load segmentation model
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id[0])

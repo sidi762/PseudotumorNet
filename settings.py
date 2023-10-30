@@ -2,8 +2,10 @@ import argparse
 
 def seg_parse_opts():
     parser = argparse.ArgumentParser()
+    # parser.add_argument('--data_list', type=str,
+    #     default='data/brain_seg_test_list.txt')
     parser.add_argument('--data_list', type=str,
-        default='data/brain_seg_test_list.txt')
+                        default='MedicalNet/dual/dataset_t1_t2/data_list_all_t1_t2_aug.txt')
     parser.add_argument('--checkpoint', type=str,
         default='3D-UNet-seg-test/ckpts/BraTS_1125_best_model.pth.tar')
     parser.add_argument('--output_path', type=str,
@@ -120,6 +122,11 @@ def class_parse_opts():
         default='resnet',
         type=str,
         help='(resnet | preresnet | wideresnet | resnext | densenet | ')
+    parser.add_argument(
+        '--convnext_size',
+        default='base',
+        type=str,
+        help='(base | tiny | large | small | xlarge | ')
     parser.add_argument(
         '--model_depth',
         default=50,

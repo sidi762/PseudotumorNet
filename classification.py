@@ -47,14 +47,12 @@ if __name__ == '__main__':
     classi_sets = class_parse_opts() # Configuration for classification model
     torch.manual_seed(classi_sets.manual_seed)
     classi_sets.model = 'resnet'
-    #classi_sets.resume_path = "MedicalNet/MedicalNet_dual/trails/models0415_2/resnet_18_dualseq_epoch_149_val_loss_0.5189778804779053_accuracy_72.0.pth.tar" #All returns 1
-    #classi_sets.resume_path = "MedicalNet/MedicalNet_dual/trails/models0415_2/resnet_18_dualseq_epoch_70_val_loss_0.6459382176399231_accuracy_80.0.pth.tar"
-    #classi_sets.resume_path = "resnet_18_dualseq_epoch_5_val_loss_0.5973857045173645_accuracy_76.0.pth.tar"
-    #classi_sets.resume_path = "MedicalNet/MedicalNet_dual/trails/models0415/resnet_18_dualseq_epoch_54_val_loss_0.6263759136199951_accuracy_64.0.pth.tar"
-    #classi_sets.resume_path = "resnet_18_dualseq_128_epoch_20_val_loss_0.7904279232025146_accuracy_76.0.pth.tar"
     #classi_sets.resume_path = "MedicalNet/dual/resnet_18_dualseq_epoch_81_val_loss_0.006248984485864639_accuracy_100.0.pth.tar"
-    classi_sets.resume_path = "resnet_18_dualseq_fold_3_epoch_29_val_loss_0.6780641078948975_accuracy_83.33333587646484.pth.tar" # test acc 66.67% on brain_seg_test_list.txt, 256x256x128 input
-    #classi_sets.data_list = "data/aug_list.txt"
+    #classi_sets.resume_path = "resnet_18_dualseq_fold_3_epoch_29_val_loss_0.6780641078948975_accuracy_83.33333587646484.pth.tar" # test acc 66.67% on brain_seg_test_list.txt, 256x256x128 input
+    # classi_sets.resume_path = "MedicalNet/dual/resnet_34_dualseq_fold_0_epoch_52_val_loss_0.4231061637401581_accuracy_91.66667175292969.pth.tar"
+    classi_sets.resume_path = "resnet_34_dualseq_fold_3_epoch_220_val_loss_0.0998634397983551_accuracy_91.66667175292969.pth.tar" # Resnet 18 test acc 69.4% on brain_seg_test_list.txt, without resize
+    
+    # classi_sets.data_list = "data/aug_list.txt"
     #classi_sets.data_list = "data/brain_seg_test_list_t1t2.txt"
     classi_sets.data_list = "data/brain_seg_test_list.txt"
     #classi_sets.data_list = "MedicalNet/dual/dataset_t1_t2/data_t1_t2_match_train.txt"
@@ -62,6 +60,7 @@ if __name__ == '__main__':
     classi_sets.model_depth = 18
     classi_sets.resnet_shortcut = 'A'
     classi_sets.batch_size = 1
+    classi_sets.in_channels = 2
     classi_sets.gpu_id = gpu_id
     # classi_sets.input_W = 256
     # classi_sets.input_H = 256
