@@ -119,6 +119,11 @@ def parse_opts():
         type=str,
         help='Shortcut type of resnet (A | B)')
     parser.add_argument(
+        '--in_channels',
+        default=2,
+        type=int,
+        help='Number of input channels')
+    parser.add_argument(
         '--manual_seed', default=1, type=int, help='Manually set random seed')
     parser.add_argument(
         '--ci_test', action='store_true', help='If true, ci testing is used.')

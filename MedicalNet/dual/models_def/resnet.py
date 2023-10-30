@@ -118,13 +118,14 @@ class ResNet(nn.Module):
                  sample_input_H,
                  sample_input_W,
                  num_seg_classes,
+                 in_channel=2,
                  shortcut_type='B',
                  no_cuda = False):
         self.inplanes = 64
         self.no_cuda = no_cuda
         super(ResNet, self).__init__()
         self.conv1 = nn.Conv3d(
-            2, #Two channels for T1 and T2 sequences
+            in_channel, #Two channels for T1 and T2 sequences
             64,
             kernel_size=7,
             stride=(2, 2, 2),
@@ -221,50 +222,50 @@ class ResNet(nn.Module):
 
         return x
 
-def resnet10(**kwargs):
+def resnet10(in_channel=2, **kwargs):
     """Constructs a ResNet-18 model.
     """
-    model = ResNet(BasicBlock, [1, 1, 1, 1], **kwargs)
+    model = ResNet(BasicBlock, [1, 1, 1, 1], in_channel=in_channel, **kwargs)
     return model
 
 
-def resnet18(**kwargs):
+def resnet18(in_channel=2, **kwargs):
     """Constructs a ResNet-18 model.
     """
-    model = ResNet(BasicBlock, [2, 2, 2, 2], **kwargs)
+    model = ResNet(BasicBlock, [2, 2, 2, 2], in_channel=in_channel, **kwargs)
     return model
 
 
-def resnet34(**kwargs):
+def resnet34(in_channel=2, **kwargs):
     """Constructs a ResNet-34 model.
     """
-    model = ResNet(BasicBlock, [3, 4, 6, 3], **kwargs)
+    model = ResNet(block=BasicBlock, layers=[3, 4, 6, 3], in_channel=in_channel, **kwargs)
     return model
 
 
-def resnet50(**kwargs):
+def resnet50(in_channel=2, **kwargs):
     """Constructs a ResNet-50 model.
     """
-    model = ResNet(Bottleneck, [3, 4, 6, 3], **kwargs)
+    model = ResNet(block=Bottleneck, layers=[3, 4, 6, 3], in_channel=in_channel, **kwargs)
     return model
 
 
-def resnet101(**kwargs):
+def resnet101(in_channel=2, **kwargs):
     """Constructs a ResNet-101 model.
     """
-    model = ResNet(Bottleneck, [3, 4, 23, 3], **kwargs)
+    model = ResNet(block=Bottleneck, layers=[3, 4, 23, 3], in_channel=in_channel, **kwargs)
     return model
 
 
-def resnet152(**kwargs):
+def resnet152(in_channel=2, **kwargs):
     """Constructs a ResNet-101 model.
     """
-    model = ResNet(Bottleneck, [3, 8, 36, 3], **kwargs)
+    model = ResNet(block=Bottleneck, layers=[3, 8, 36, 3], in_channel=in_channel, **kwargs)
     return model
 
 
-def resnet200(**kwargs):
+def resnet200(in_channel=2, **kwargs):
     """Constructs a ResNet-101 model.
     """
-    model = ResNet(Bottleneck, [3, 24, 36, 3], **kwargs)
+    model = ResNet(block=Bottleneck, layers=[3, 24, 36, 3], in_channel=in_channel, **kwargs)
     return model
