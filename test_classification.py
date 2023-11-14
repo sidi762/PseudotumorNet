@@ -7,10 +7,10 @@ from scipy import ndimage
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 import sys
-sys.path.append('./MedicalNet/dual')
-import MedicalNet.dual.model as MMModel
+sys.path.append('./classification')
+import classification.model as MMModel
 from settings import class_parse_opts
-from MedicalNet.dual.datasets.wch_dataset import CustomTumorDataset
+from classification.datasets.wch_dataset import CustomTumorDataset
 
 from medcam import medcam
 
@@ -43,7 +43,7 @@ def classification(data_loader, model, sets):
 
 
 if __name__ == '__main__':
-    gpu_id = [0]
+    gpu_id = [1]
     classi_sets = class_parse_opts() # Configuration for classification model
     torch.manual_seed(classi_sets.manual_seed)
     classi_sets.model = 'resnet'
@@ -52,9 +52,9 @@ if __name__ == '__main__':
     # classi_sets.resume_path = "MedicalNet/dual/resnet_34_dualseq_fold_0_epoch_52_val_loss_0.4231061637401581_accuracy_91.66667175292969.pth.tar"
     classi_sets.resume_path = "resnet_34_dualseq_fold_3_epoch_220_val_loss_0.0998634397983551_accuracy_91.66667175292969.pth.tar" # Resnet 18 test acc 69.4% on brain_seg_test_list.txt, without resize
     
-    # classi_sets.data_list = "data/aug_list.txt"
-    #classi_sets.data_list = "data/brain_seg_test_list_t1t2.txt"
-    classi_sets.data_list = "data/brain_seg_test_list.txt"
+    classi_sets.data_list = "data/aug_list.txt"
+    # classi_sets.data_list = "data/brain_seg_test_list_t1t2.txt"
+    # classi_sets.data_list = "data/brain_seg_test_list.txt"
     #classi_sets.data_list = "MedicalNet/dual/dataset_t1_t2/data_t1_t2_match_train.txt"
     classi_sets.data_root = "data/Preprocessed"
     classi_sets.model_depth = 18
