@@ -15,9 +15,13 @@ from torch.utils.tensorboard import SummaryWriter
 from EarlyStopping_torch import EarlyStopping
 from sklearn.model_selection import KFold
 from datetime import datetime
+import schedulers
 
 
-def train(data_loader, validation_loader, model, optimizer, scheduler, total_epochs, save_interval, save_folder, sets, patience, fold):
+def train(data_loader, validation_loader, model, total_epochs, 
+          save_folder, sets, patience, 
+          fold=None, optimizer=None, scheduler=None, 
+          lr_schedule_values=None, update_freq=None, save_interval=None):
     # settings
     batches_per_epoch = len(data_loader)
     log.info('{} epochs in total, {} batches per epoch'.format(total_epochs, batches_per_epoch))
@@ -31,16 +35,20 @@ def train(data_loader, validation_loader, model, optimizer, scheduler, total_epo
     if not sets.no_cuda:
         loss_func = loss_func.cuda()
 
-    model.train()
+    model.train(True)
     train_time_sp = time.time()
     best_val_loss = 1000
     val_accuracy = 0 # Store the validation accuracy for this fold
     for epoch in range(total_epochs):
         log.info('Start epoch {}'.format(epoch))
-
-        current_lr = scheduler.get_last_lr()[0]
-        log.info('lr = {}'.format(current_lr))
-        writer.add_scalar("LearningRate", current_lr, epoch)
+        if scheduler is not None:
+            current_lr = scheduler.get_last_lr()[0]
+            log.info('lr = {}'.format(current_lr))
+            writer.add_scalar("LearningRate", current_lr, epoch)
+        else:
+            current_lr = lr_schedule_values[epoch * batches_per_epoch] 
+            log.info('lr = {}'.format(current_lr))
+            writer.add_scalar("LearningRate", current_lr, epoch)
 
         for batch_id, batch_data in enumerate(data_loader):
             if epoch == 0 and batch_id == 0:
@@ -49,6 +57,13 @@ def train(data_loader, validation_loader, model, optimizer, scheduler, total_epo
             total = 0
             # getting data batch
             batch_id_sp = epoch * batches_per_epoch
+            
+            if lr_schedule_values is not None:
+                for i, param_group in enumerate(optimizer.param_groups):
+                    if lr_schedule_values is not None:
+                        param_group["lr"] = lr_schedule_values[batch_id + batch_id_sp]
+                        log.info('lr = {}'.format(param_group["lr"]))
+            
             volumes, label, img_name = batch_data
 
             if not sets.no_cuda:
@@ -64,7 +79,8 @@ def train(data_loader, validation_loader, model, optimizer, scheduler, total_epo
             loss = loss_func(out_class, label)
             loss.backward()
             optimizer.step()
-            scheduler.step()
+            if scheduler is not None: 
+                scheduler.step()
             last_loss = loss.item()
             _, predicted = torch.max(out_class.data, 1)
             correct += (predicted == label).float().sum()
@@ -143,9 +159,6 @@ def train(data_loader, validation_loader, model, optimizer, scheduler, total_epo
 if __name__ == '__main__':
     # settting
     sets = parse_opts()
-
-    # Configuring model
-    torch.manual_seed(sets.manual_seed)
     
     # Commented out as this is set in arguments 
     # sets.model = 'resnet'
@@ -163,20 +176,16 @@ if __name__ == '__main__':
     patience = 300
     
     # Set fixed random number seed
-    torch.manual_seed(42)
-        
-    # training_dataset = CustomTumorDataset(sets.data_root, sets)
-    # validation_dataset = CustomTumorDataset(sets.data_root_val, sets)
-    # print('Training set has {} instances'.format(len(training_dataset)))
-    # print('Validation set has {} instances'.format(len(validation_dataset)))
+    torch.manual_seed(sets.manual_seed)
     
     # full_dataset = CustomTumorDataset(sets.data_root, sets)
     # k_folds = 5
     # kfold = KFold(n_splits=k_folds, shuffle=True)
+    dataset_train = CustomTumorDataset(sets.data_root, sets)
+    dataset_val = CustomTumorDataset(sets.data_root_val, sets)
+    print('Training set has {} instances'.format(len(dataset_train)))
+    print('Validation set has {} instances'.format(len(dataset_val)))
     
-    trainset = CustomTumorDataset(sets.data_root, sets)
-    valset = CustomTumorDataset(sets.data_root_val, sets)
-
     tb_log_dir = ""
     now = datetime.now() 
     date_time = now.strftime("%Y-%m-%d_%H-%M-%S")
@@ -190,7 +199,7 @@ if __name__ == '__main__':
           
     log.info (model)
     # Compile model for faster training
-    # model = torch.compile(model, mode="max-autotune")
+    # model = torch.compile(model)
     
     # optimizer
     if (not sets.ci_test) and sets.pretrain_path:
@@ -208,7 +217,14 @@ if __name__ == '__main__':
     #                              amsgrad=False)
     # optimizer = torch.optim.SGD(params, momentum=0.9, weight_decay=1e-3)
     optimizer = torch.optim.AdamW(params, eps=1e-8, lr=sets.learning_rate, weight_decay=0.05)
-    scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+    # scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+    print("Use Cosine LR scheduler")
+    num_training_steps_per_epoch = (len(dataset_train) // sets.batch_size) + 1
+    print("num_training_steps_per_epoch: " + str(num_training_steps_per_epoch))
+    lr_schedule_values = schedulers.cosine_scheduler(
+        sets.learning_rate, 1e-6, sets.n_epochs, num_training_steps_per_epoch,
+        warmup_epochs=20, warmup_steps=-1,
+    )
     
     # scheduler = lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
     #                                     T_0 = 20,# Number of iterations for the first restart
@@ -237,11 +253,12 @@ if __name__ == '__main__':
     # train_subsampler = torch.utils.data.SubsetRandomSampler(train_ids)
     # val_subsampler = torch.utils.data.SubsetRandomSampler(val_ids)
 
-    train_data_loader = DataLoader(trainset, batch_size=sets.batch_size, shuffle=True, num_workers=sets.num_workers, pin_memory=sets.pin_memory)
-    val_data_loader = DataLoader(valset, batch_size=sets.batch_size, shuffle=False, num_workers=sets.num_workers, pin_memory=sets.pin_memory)
+    train_data_loader = DataLoader(dataset_train, batch_size=sets.batch_size, shuffle=True, num_workers=sets.num_workers, pin_memory=sets.pin_memory)
+    val_data_loader = DataLoader(dataset_val, batch_size=sets.batch_size, shuffle=False, num_workers=sets.num_workers, pin_memory=sets.pin_memory)
        
-    train(train_data_loader, val_data_loader, model, optimizer, scheduler, 
-          total_epochs=sets.n_epochs, save_interval=sets.save_intervals, 
-          save_folder=sets.save_folder, sets=sets, patience=patience)   
+    train(data_loader=train_data_loader, validation_loader=val_data_loader, 
+          model=model, optimizer=optimizer, total_epochs=sets.n_epochs, 
+          save_interval=sets.save_intervals, save_folder=sets.save_folder, 
+          sets=sets, patience=patience, lr_schedule_values=lr_schedule_values)   
   
     
