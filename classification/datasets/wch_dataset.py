@@ -31,6 +31,7 @@ class CustomTumorDataset(Dataset):
         self.input_D = sets.input_D
         self.input_H = sets.input_H
         self.input_W = sets.input_W
+        self.with_augmentation = sets.with_augmentation
         self.t1_image_list = []
         self.t2_image_list = []
 
@@ -80,15 +81,30 @@ class CustomTumorDataset(Dataset):
         if self.phase == "train":
             # read image and labels
             patient_path = self.paths[idx]
-            t1_image_path = list(patient_path.glob("*t1.nii.gz"))
-            # print(patient_path)
-            t2_image_path = list(patient_path.glob("*t2.nii.gz"))
-            t1_image_path = t1_image_path[0]
-            assert os.path.isfile(t1_image_path)
-            self.t1_image_list.append(t1_image_path)
-            t2_image_path = t2_image_path[0]
-            self.t2_image_list.append(t2_image_path)
-            assert os.path.isfile(t2_image_path)
+            
+            if self.with_augmentation is False:
+                t1_image_path = list(patient_path.glob("*t1.nii.gz"))
+                # print(patient_path)
+                t2_image_path = list(patient_path.glob("*t2.nii.gz"))
+                t1_image_path = t1_image_path[0]
+                assert os.path.isfile(t1_image_path)
+                self.t1_image_list.append(t1_image_path)
+                t2_image_path = t2_image_path[0]
+                self.t2_image_list.append(t2_image_path)
+                assert os.path.isfile(t2_image_path)
+            else:
+                t1_image_path = list(patient_path.glob("*t1_aug.nii.gz"))
+                # print(patient_path)
+                t2_image_path = list(patient_path.glob("*t2_aug.nii.gz"))
+                if len(t1_image_path) < 1:
+                    print("Error: " + str(patient_path))
+                t1_image_path = t1_image_path[0]
+                assert os.path.isfile(t1_image_path)
+                self.t1_image_list.append(t1_image_path)
+                t2_image_path = t2_image_path[0]
+                self.t2_image_list.append(t2_image_path)
+                assert os.path.isfile(t2_image_path)
+            
             class_name  = self.paths[idx].parent.name
             t1_img = nibabel.load(t1_image_path)
             t1_img_array = t1_img.get_fdata()
@@ -183,6 +199,12 @@ class CustomTumorDataset(Dataset):
         else:
             return volume[min_z:max_z, min_h:max_h, min_w:max_w]
 
+    def __stack_drop_invalid_range__(self, volume, label=None):
+        first_vol = volume[0]
+        sec_vol = volume[1]
+        first_vol, sec_vol = self.__drop_invalid_range__(first_vol, sec_vol)
+        return np.array([first_vol, sec_vol])
+
     def __random_flip__(self, data, data2):
         # Randomly choose whether to flip or not
         flip = np.random.choice([True, False])
@@ -267,7 +289,16 @@ class CustomTumorDataset(Dataset):
 
         return data
 
-
+    def __stack_resize_data__(self, data):
+        """
+        Resize the data to the input size
+        """
+        first_vol = data[0]
+        sec_vol = data[1]
+        first_vol = self.__resize_data__(first_vol)
+        sec_vol = self.__resize_data__(sec_vol)
+        return np.array([first_vol, sec_vol])
+    
     def __crop_data__(self, data, label=None):
         """
         Random crop with different methods:
@@ -286,11 +317,11 @@ class CustomTumorDataset(Dataset):
             if data2: # Process two volumes (T1 and T2 in our case)
                 # data = data.get_fdata()
                 # data2 = data2.get_fdata()  # get data from nii and returns an array.
-                # data, data2 = self.__drop_invalid_range__(data, data2) # drop out the invalid range
+                data, data2 = self.__drop_invalid_range__(data, data2) # drop out the invalid range
                 # data, data2 = self.__crop_data__(data, data2) # crop data
                 # resize data
-                # data = self.__resize_data__(data) 
-                # data2 = self.__resize_data__(data2)
+                data = self.__resize_data__(data) 
+                data2 = self.__resize_data__(data2)
                 # random flip
                 # data, data2 = self.__random_flip__(data, data2)
                 # normalization
@@ -302,10 +333,12 @@ class CustomTumorDataset(Dataset):
                 #data = data[:,:,:,0]
                 # drop out the invalid range
                 # data = self.__drop_invalid_range__(data)
+                data = self.__stack_drop_invalid_range__(data)
                 # crop data
                 # data = self.__crop_data__(data)
                 # resize data
                 # data = self.__resize_data__(data)
+                data = self.__stack_resize_data__(data)
                 # normalization data
                 data = self.__itensity_normalize_one_volume__(data)
                 return data
