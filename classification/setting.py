@@ -92,7 +92,10 @@ def parse_opts():
         help='New layer except for backbone')
     parser.add_argument(
         '--no_cuda', action='store_true', help='If true, cuda is not used.')
+    parser.add_argument(
+        '--with_augmentation', action='store_true', help='If true, data after brightness augmentation is used.')
     parser.set_defaults(no_cuda=False)
+    parser.set_defaults(with_augmentation=False)
     parser.add_argument(
         '--gpu_id',
         nargs='+',
@@ -124,7 +127,7 @@ def parse_opts():
         type=int,
         help='Number of input channels')
     parser.add_argument(
-        '--manual_seed', default=1, type=int, help='Manually set random seed')
+        '--manual_seed', default=42, type=int, help='Manually set random seed')
     parser.add_argument(
         '--ci_test', action='store_true', help='If true, ci testing is used.')
     args = parser.parse_args()
