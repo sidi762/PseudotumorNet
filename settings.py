@@ -111,7 +111,10 @@ def class_parse_opts():
         help='New layer except for backbone')
     parser.add_argument(
         '--no_cuda', action='store_true', help='If true, cuda is not used.')
+    parser.add_argument(
+        '--with_augmentation', action='store_true', help='If true, data after brightness augmentation is used.')
     parser.set_defaults(no_cuda=False)
+    parser.set_defaults(with_augmentation=False)
     parser.add_argument(
         '--gpu_id',
         nargs='+',
