@@ -2,6 +2,8 @@
 *.DS_Store
 **/__pycache__/*
 __pycache__/*
-./classification/trails/*
-./classification/runs/*
-./classification/unused/*
+classification/trails/*
+classification/runs/*
+classification/unused/*
+classification/dataset_t1_t2/*
+classification/tensorboard_runs/*
