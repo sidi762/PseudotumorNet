@@ -77,7 +77,6 @@ class CustomTumorDataset(Dataset):
             return len(self.paths)
 
     def __getitem__(self, idx):
-
         if self.phase == "train":
             # read image and labels
             patient_path = self.paths[idx]
@@ -130,7 +129,6 @@ class CustomTumorDataset(Dataset):
             class_idx = self.class_to_idx[class_name]
 
             return img_array, class_idx, patient_path.__str__()
-
         elif self.phase == "test":
             # print(idx)
             patient_data = self.data_list[idx].split()
@@ -166,7 +164,6 @@ class CustomTumorDataset(Dataset):
             # t1_img_array = self.__nii2tensorarray__(t1_img_array)
             # t2_img_array = self.__nii2tensorarray__(t2_img_array)
             img_array = self.__nii2tensorarray__(img_array)
-            
 
             return img_array, patient_path
 
@@ -374,8 +371,8 @@ class CustomTumorDataset(Dataset):
                 # if crop:
                 #     data, data2 = self.__crop_data__(data, data2) # crop data
                 # resize data
-                # data = self.__resize_data__(data) 
-                # data2 = self.__resize_data__(data2)
+                data = self.__resize_data__(data) 
+                data2 = self.__resize_data__(data2)
                 # normalization
                 data = self.__itensity_normalize_one_volume__(data)
                 data2 = self.__itensity_normalize_one_volume__(data2)
@@ -386,10 +383,12 @@ class CustomTumorDataset(Dataset):
                 #data = data[:,:,:,0]
                 # drop out the invalid range
                 # data = self.__drop_invalid_range__(data)
+                data = self.__stack_drop_invalid_range__(data)
                 # if crop:
                 #     data = self.__crop_data__(data) # crop data
                 # resize data
                 # data = self.__resize_data__(data)
+                data = self.__stack_resize_data__(data)
                 # normalization
                 data = self.__itensity_normalize_one_volume__(data)
                 return data
