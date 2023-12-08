@@ -116,6 +116,11 @@ def class_parse_opts():
     parser.set_defaults(no_cuda=False)
     parser.set_defaults(with_augmentation=False)
     parser.add_argument(
+        '--export_preprocessed_image', action='store_true', help='If true, image after preprocessing will be saved.')
+    parser.set_defaults(export_preprocessed_image=False)
+    parser.add_argument(
+        '--preprocessed_image_export_path', type=str, default='./preprocessed_image', help='Path for exporting preprocessed images.')
+    parser.add_argument(
         '--gpu_id',
         nargs='+',
         type=int,
