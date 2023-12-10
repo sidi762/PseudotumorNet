@@ -203,7 +203,7 @@ class CustomTumorDataset(Dataset):
                 nibabel.save(t1_preprocessed, t1_save_path)
                 nibabel.save(t2_preprocessed, t2_save_path)
 
-            return img_array, patient_path
+            return img_array, patient_path, t1_affine, t2_affine
 
     def __drop_invalid_range_fixed__(self, volume, crop_size=20, label=None):
         """

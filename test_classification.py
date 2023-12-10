@@ -4,6 +4,7 @@ from tqdm import  tqdm
 import nibabel as nib
 import numpy as np
 from scipy import ndimage
+from torchinfo import summary
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 import sys
@@ -14,6 +15,33 @@ from classification.datasets.wch_dataset import CustomTumorDataset
 
 from medcam import medcam
 
+# Scan all the nii files in attention_maps and its sub dir and resize them
+def scan_and_resize():
+    import os
+    for root, dirs, files in os.walk("./attention_maps"):
+        for file in files:
+            if file.endswith(".nii.gz"):
+                path = os.path.join(root, file)
+                data = nib.load(path)
+                affine = data.affine
+                data = resize(data)
+                new_path = path.replace('.nii.gz', '_resized.nii.gz')
+                nib.save(nib.Nifti1Image(data, affine), new_path)
+
+
+def resize(data, target_W=256, target_D=256, target_H=64):
+    data = data.get_fdata()
+    [width, depth, height] = data.shape
+    scale = [target_W*1.0/width, target_D*1.0/depth, target_H*1.0/height]
+    data = ndimage.zoom(data, scale, order=0)
+    data = data.astype(np.float32)
+
+    return data
+
+def save_attention_map(attention_map, affine, filename, save_dir="./attention_maps"):
+    pass
+
+
 #Classification
 def classification(data_loader, model, sets):
     predicted_labels = []
@@ -21,7 +49,7 @@ def classification(data_loader, model, sets):
     results = []
     model.eval() # for testing
     with torch.no_grad():
-        for batch_id, (volumes, patient_path) in tqdm(enumerate(data_loader), \
+        for batch_id, (volumes, patient_path, t1_affine, t2_affine) in tqdm(enumerate(data_loader), \
                                         total=len(data_loader), \
                                         postfix='seg', \
                                         ncols=100, ):
@@ -29,7 +57,12 @@ def classification(data_loader, model, sets):
             if not sets.no_cuda:
                 volumes = volumes.cuda()
 
-            out_class = model(volumes)
+            out_class, attention_map = model(volumes)
+            # attention_map = medcam.medcam_utils.interpolate(attention_map, 
+            #                                                 shape=[256,64,256])
+            # attention_map = attention_map.squeeze(0).squeeze(0)
+            # print(attention_map.shape)
+            # model.save_attention_map(attention_map)
             probs = F.softmax(out_class, dim=1)
             class_probs.extend(probs.cpu().numpy())  # Store class probabilities
 
@@ -76,14 +109,23 @@ if __name__ == '__main__':
     if classi_sets.no_cuda:
         model = torch.nn.DataParallel(model)
     model.load_state_dict(checkpoint['state_dict'])
+    summary(model, 
+            input_size=(classi_sets.batch_size,2,256,256,64), 
+            col_names=["input_size", "output_size", "kernel_size", "num_params", "mult_adds"],
+            mode="eval",
+            depth=4,
+            verbose=1)
     model = medcam.inject(
-        model, backend='gcampp', 
-        layer='auto', 
-        data_shape=[256, 64, 256],
-        output_dir="attention_maps", 
+        model, backend='gcampp',
+        layer='auto',
+        return_attention=True,
+        output_dir="attention_maps",
         save_maps=True)
     testing_data =CustomTumorDataset(classi_sets.data_root, classi_sets)
-    data_loader = DataLoader(testing_data, batch_size=1, shuffle=False, num_workers=2, pin_memory=False)
+    data_loader = DataLoader(testing_data, batch_size=1, 
+                             shuffle=False, num_workers=2, 
+                             pin_memory=False)
     results = classification(data_loader, model, classi_sets)
     for result in results[0]:
         print(result[0], result[1], "\n")
+    # scan_and_resize()
