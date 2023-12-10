@@ -182,7 +182,17 @@ if __name__ == '__main__':
         model_parameters = filter(lambda p: p.requires_grad, model.parameters())
         params = sum([np.prod(p.size()) for p in model_parameters])
         log.info("The network has {} trainable parameters".format(params))
-        log.info(summary(model, input_size=(sets.batch_size,2,256,256,64), col_names=("input_size", "output_size", "kernel_size", "num_params", "mult_adds")))
+        log.info(
+            summary(model, 
+                    input_size=(sets.batch_size,2,256,256,64), 
+                    col_names=["input_size",
+                               "output_size",
+                               "kernel_size",
+                               "num_params",
+                               "mult_adds"],
+                    mode="train",
+                    depth=4,
+                    verbose=1))
         # Compile model for faster training
         # model = torch.compile(model)
         
@@ -297,7 +307,17 @@ if __name__ == '__main__':
             model_parameters = filter(lambda p: p.requires_grad, model.parameters())
             params = sum([np.prod(p.size()) for p in model_parameters])
             log.info("The network has {} trainable parameters".format(params))
-            log.info(summary(model, input_size=(sets.batch_size,2,256,256,64)))
+            log.info(
+            summary(model, 
+                    input_size=(sets.batch_size,2,256,256,64), 
+                    col_names=["input_size",
+                               "output_size",
+                               "kernel_size",
+                               "num_params",
+                               "mult_adds"],
+                    mode="train",
+                    depth=4,
+                    verbose=1))
             # Compile model for faster training
             # model = torch.compile(model, mode="max-autotune")
             # optimizer
