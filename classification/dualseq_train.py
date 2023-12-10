@@ -2,7 +2,7 @@ from setting import parse_opts
 from model import generate_model
 import torch
 import numpy as np
-from torchsummary import summary
+from torchinfo import summary
 from torch import nn
 from torch import optim
 from torch.optim import lr_scheduler
@@ -182,7 +182,7 @@ if __name__ == '__main__':
         model_parameters = filter(lambda p: p.requires_grad, model.parameters())
         params = sum([np.prod(p.size()) for p in model_parameters])
         log.info("The network has {} trainable parameters".format(params))
-        log.info(summary(model, input_size=(2,256,256,64)))
+        log.info(summary(model, input_size=(sets.batch_size,2,256,256,64)))
         # Compile model for faster training
         # model = torch.compile(model)
         
@@ -297,7 +297,7 @@ if __name__ == '__main__':
             model_parameters = filter(lambda p: p.requires_grad, model.parameters())
             params = sum([np.prod(p.size()) for p in model_parameters])
             log.info("The network has {} trainable parameters".format(params))
-            log.info(summary(model, input_size=(2,256,256,64)))
+            log.info(summary(model, input_size=(sets.batch_size,2,256,256,64)))
             # Compile model for faster training
             # model = torch.compile(model, mode="max-autotune")
             # optimizer
