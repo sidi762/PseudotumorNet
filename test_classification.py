@@ -92,7 +92,7 @@ def classification(data_loader, model, sets):
             if sets.export_overlay_attention_map:
                 import os 
                 for index, volume in enumerate(volumes):
-                    t1_image = volume[0].numpy()
+                    t1_image = volume[0].cpu().numpy()
                     # Overlay the attention map onto the original image
                     overlayed_map = overlay_attention_map(t1_image, attention_map.numpy(), 0.6)
                     # Save the overlayed image
