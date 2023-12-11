@@ -32,9 +32,7 @@ class CustomTumorDataset(Dataset):
         self.with_augmentation = sets.with_augmentation
         self.t1_image_list = []
         self.t2_image_list = []
-        self.export_images = sets.export_preprocessed_image
-        self.export_path = sets.preprocessed_image_export_path
-
+      
     def __nii2tensorarray__(self, data):
         # [z, y, x] = data.shape
         # new_data = np.reshape(data, [z, y, x])
@@ -127,26 +125,6 @@ class CustomTumorDataset(Dataset):
             img_array = self.__nii2tensorarray__(img_array)
             #print(img_array.shape)
             class_idx = self.class_to_idx[class_name]
-            if self.export_images:
-                # Check if self.export_path exists and if not, create it
-                if not os.path.exists(self.export_path):
-                    os.makedirs(self.export_path)
-                
-                t1_affine = t1_img.affine
-                t2_affine = t2_img.affine
-                t1_preprocessed = nibabel.Nifti1Image(img_array[0], t1_affine)
-                t2_preprocessed = nibabel.Nifti1Image(img_array[1], t2_affine)
-
-                # Save the image as nii file
-                t1_file_name = os.path.basename(t1_image_path).replace(".nii.gz", "_preprocessed.nii.gz")
-                t2_file_name = os.path.basename(t2_image_path).replace(".nii.gz", "_preprocessed.nii.gz")
-                
-                t1_save_path = os.path.join(self.export_path, t1_file_name)
-                t2_save_path = os.path.join(self.export_path, t2_file_name)
-                
-                nibabel.save(t1_preprocessed, t1_save_path)  
-                nibabel.save(t2_preprocessed, t2_save_path)
-
             return img_array, class_idx, patient_path.__str__()
         elif self.phase == "test":
             # print(idx)
@@ -183,27 +161,10 @@ class CustomTumorDataset(Dataset):
             # t1_img_array = self.__nii2tensorarray__(t1_img_array)
             # t2_img_array = self.__nii2tensorarray__(t2_img_array)
             img_array = self.__nii2tensorarray__(img_array)
-            if self.export_images:
-                # Check if self.export_path exists and if not, create it
-                if not os.path.exists(self.export_path):
-                    os.makedirs(self.export_path)
-                
-                t1_affine = t1_img.affine
-                t2_affine = t2_img.affine
-                t1_preprocessed = nibabel.Nifti1Image(img_array[0], t1_affine)
-                t2_preprocessed = nibabel.Nifti1Image(img_array[1], t2_affine)
+            t1_affine = t1_img.affine
+            t2_affine = t2_img.affine
 
-                # Save the image as nii file
-                t1_file_name = os.path.basename(t1_path).replace(".nii.gz", "_preprocessed.nii.gz")
-                t2_file_name = os.path.basename(t2_path).replace(".nii.gz", "_preprocessed.nii.gz")
-                
-                t1_save_path = os.path.join(self.export_path, t1_file_name)
-                t2_save_path = os.path.join(self.export_path, t2_file_name)
-                
-                nibabel.save(t1_preprocessed, t1_save_path)
-                nibabel.save(t2_preprocessed, t2_save_path)
-
-            return img_array, patient_path, t1_affine, t2_affine
+            return img_array, patient_path, t1_affine, t2_affine, t1_path, t2_path
 
     def __drop_invalid_range_fixed__(self, volume, crop_size=20, label=None):
         """

@@ -120,6 +120,12 @@ def class_parse_opts():
     parser.set_defaults(export_preprocessed_image=False)
     parser.add_argument(
         '--preprocessed_image_export_path', type=str, default='./preprocessed_image', help='Path for exporting preprocessed images.')
+    parser.set_defaults(export_preprocessed_image=False)
+    parser.add_argument(
+    '--export_overlay_attention_map', 
+    action='store_true', 
+    help='If true, the attention map(if generated) will be overlayed. For testing only.')
+    parser.set_defaults(export_overlay_attention_map=False)
     parser.add_argument(
         '--gpu_id',
         nargs='+',

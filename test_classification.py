@@ -39,7 +39,11 @@ def resize(data, target_W=256, target_D=256, target_H=64):
     return data
 
 def save_attention_map(attention_map, affine, filename, save_dir="./attention_maps"):
-    pass
+    image_to_save = nib.Nifti1Image(attention_map, affine)
+    nib.save(image_to_save, os.path.join(save_dir, filename))
+
+def overlay_attention_map(image, attention_map, coeff):
+    return image + attention_map * coeff
 
 
 #Classification
@@ -49,20 +53,52 @@ def classification(data_loader, model, sets):
     results = []
     model.eval() # for testing
     with torch.no_grad():
-        for batch_id, (volumes, patient_path, t1_affine, t2_affine) in tqdm(enumerate(data_loader), \
+        for batch_id, (volumes, patient_path, t1_affine, t2_affine, t1_image_path, t2_image_path) in tqdm(enumerate(data_loader), \
                                         total=len(data_loader), \
                                         postfix='seg', \
                                         ncols=100, ):
+            if sets.export_preprocessed_image:
+                import os
+                for index, volume in enumerate(volumes):
+                    preprocessed_export_path = sets.preprocessed_image_export_path
+                    if not os.path.exists(preprocessed_export_path):
+                        os.makedirs(preprocessed_export_path)
+
+                    t1_preprocessed = nib.Nifti1Image(volume[0].numpy(), t1_affine[index])
+                    t2_preprocessed = nib.Nifti1Image(volume[1].numpy(), t2_affine[index])
+
+                    # Save the image as nii file
+                    t1_file_name = os.path.basename(t1_image_path[index]).replace(".nii.gz", "_preprocessed.nii.gz")
+                    t2_file_name = os.path.basename(t2_image_path[index]).replace(".nii.gz", "_preprocessed.nii.gz")
+                    
+                    t1_save_path = os.path.join(preprocessed_export_path, t1_file_name)
+                    t2_save_path = os.path.join(preprocessed_export_path, t2_file_name)
+                    
+                    nib.save(t1_preprocessed, t1_save_path)  
+                    nib.save(t2_preprocessed, t2_save_path)
+
             # forward
             if not sets.no_cuda:
                 volumes = volumes.cuda()
 
             out_class, attention_map = model(volumes)
+            attention_map = attention_map.squeeze(0).squeeze(0)
             # attention_map = medcam.medcam_utils.interpolate(attention_map, 
             #                                                 shape=[256,64,256])
             # attention_map = attention_map.squeeze(0).squeeze(0)
             # print(attention_map.shape)
             # model.save_attention_map(attention_map)
+
+            if sets.export_overlay_attention_map:
+                import os 
+                for index, volume in enumerate(volumes):
+                    t1_image = volume[0].numpy()
+                    # Overlay the attention map onto the original image
+                    overlayed_map = overlay_attention_map(t1_image, attention_map.numpy(), 0.6)
+                    # Save the overlayed image
+                    overlay_file_name = os.path.basename(t1_image_path[index]).replace(".nii.gz", "_overlayed_attention_map.nii.gz")
+                    save_attention_map(overlayed_map, t1_affine, overlay_file_name)
+
             probs = F.softmax(out_class, dim=1)
             class_probs.extend(probs.cpu().numpy())  # Store class probabilities
 
@@ -103,6 +139,7 @@ if __name__ == '__main__':
     classi_sets.input_D = 64
     classi_sets.phase = 'test'
     classi_sets.export_preprocessed_image = True
+    classi_sets.export_overlay_attention_map = True
     # Getting model
     checkpoint = torch.load(classi_sets.resume_path)
     model, _ = MMModel.generate_model(classi_sets)
