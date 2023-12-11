@@ -97,7 +97,7 @@ def classification(data_loader, model, sets):
                     overlayed_map = overlay_attention_map(t1_image, attention_map.cpu().numpy(), 0.6)
                     # Save the overlayed image
                     overlay_file_name = os.path.basename(t1_image_path[index]).replace(".nii.gz", "_overlayed_attention_map.nii.gz")
-                    save_attention_map(overlayed_map, t1_affine, overlay_file_name)
+                    save_attention_map(overlayed_map, t1_affine[index], overlay_file_name)
 
             probs = F.softmax(out_class, dim=1)
             class_probs.extend(probs.cpu().numpy())  # Store class probabilities
