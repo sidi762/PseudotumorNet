@@ -39,6 +39,7 @@ def resize(data, target_W=256, target_D=256, target_H=64):
     return data
 
 def save_attention_map(attention_map, affine, filename, save_dir="./attention_maps"):
+    import os
     image_to_save = nib.Nifti1Image(attention_map, affine)
     nib.save(image_to_save, os.path.join(save_dir, filename))
 
@@ -90,7 +91,6 @@ def classification(data_loader, model, sets):
             # model.save_attention_map(attention_map)
 
             if sets.export_overlay_attention_map:
-                import os 
                 for index, volume in enumerate(volumes):
                     t1_image = volume[0].cpu().numpy()
                     # Overlay the attention map onto the original image
