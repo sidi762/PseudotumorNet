@@ -158,6 +158,8 @@ def train(data_loader, validation_loader, model, total_epochs,
     return val_accuracy
 
 
+
+
 if __name__ == '__main__':
     # settting
     sets = parse_opts()
@@ -176,13 +178,134 @@ if __name__ == '__main__':
     
     # getting data
     if not sets.k_fold_cross_validation:
-         # getting model
-        model, parameters = generate_model(sets) # Generate Models
-        log.info(model)
-        model_parameters = filter(lambda p: p.requires_grad, model.parameters())
-        params = sum([np.prod(p.size()) for p in model_parameters])
-        log.info("The network has {} trainable parameters".format(params))
-        log.info(
+        if not sets.manual_train_val_split:
+            # getting model
+            model, parameters = generate_model(sets) # Generate Models
+            log.info(model)
+            model_parameters = filter(lambda p: p.requires_grad, model.parameters())
+            params = sum([np.prod(p.size()) for p in model_parameters])
+            log.info("The network has {} trainable parameters".format(params))
+            log.info(
+                summary(model, 
+                        input_size=(sets.batch_size,2,256,256,64), 
+                        col_names=["input_size",
+                                "output_size",
+                                "kernel_size",
+                                "num_params",
+                                "mult_adds"],
+                        mode="train",
+                        depth=4,
+                        verbose=1))
+            # Compile model for faster training
+            # model = torch.compile(model)
+            
+            dataset_train = CustomTumorDataset(sets.data_root, sets)
+            dataset_val = CustomTumorDataset(sets.data_root_val, sets)
+            print('Training set has {} instances'.format(len(dataset_train)))
+            print('Validation set has {} instances'.format(len(dataset_val)))
+            
+            tb_log_dir = ""
+            now = datetime.now() 
+            date_time = now.strftime("%Y-%m-%d_%H-%M-%S")
+            train_with_aug = "no_aug"
+            if sets.with_augmentation:
+                train_with_aug = "with_aug"
+            
+            if sets.model == 'resnet':
+                tb_log_dir = "runs/"+sets.model+str(sets.model_depth)+"_"+train_with_aug+"_"+date_time
+            elif sets.model == 'convnext':
+                tb_log_dir = "runs/"+sets.model+sets.convnext_size+"_"+train_with_aug+"_"+date_time
+            writer = SummaryWriter(log_dir=tb_log_dir)
+            
+            # optimizer
+            if (not sets.ci_test) and sets.pretrain_path:
+                params = [
+                        { 'params': parameters['base_parameters'], 'lr': sets.learning_rate },
+                        { 'params': parameters['new_parameters'], 'lr': sets.learning_rate*100 }
+                ]
+            else:
+                params = [{'params': parameters, 'lr': sets.learning_rate}]
+            # optimizer = torch.optim.Adam(params,
+            #                              lr=sets.learning_rate,
+            #                              betas=(0.9,0.999),
+            #                              eps=1e-08,
+            #                              weight_decay=1e-3,
+            #                              amsgrad=False)
+            # optimizer = torch.optim.SGD(params, momentum=0.9, weight_decay=1e-3)
+            optimizer = torch.optim.AdamW(params, eps=1e-8, lr=sets.learning_rate, weight_decay=0.05)
+            # scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+            print("Use Cosine LR scheduler")
+            num_training_steps_per_epoch = (len(dataset_train) // sets.batch_size) + 1
+            print("num_training_steps_per_epoch: " + str(num_training_steps_per_epoch))
+            lr_schedule_values = schedulers.cosine_scheduler(
+                sets.learning_rate, 1e-6, sets.n_epochs, num_training_steps_per_epoch,
+                warmup_epochs=20, warmup_steps=-1,
+            )
+            
+            # scheduler = lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
+            #                                     T_0 = 20,# Number of iterations for the first restart
+            #                                     T_mult = 1, # A factor increases TiTi​ after a restart
+            #                                     eta_min = 1e-6) # Minimum learning rate
+            
+            # scheduler = lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
+            #                                     T_0 = sets.n_epochs,# Number of iterations for the first restart
+            #                                     T_mult = 1, # A factor increases TiTi​ after a restart
+            #                                     eta_min = 1e-6) # Minimum learning rate
+            
+            # scheduler = lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=sets.n_epochs, eta_min=1e-6)
+                
+            # train from resume
+            if sets.resume_path:
+                if os.path.isfile(sets.resume_path):
+                    log.info("=> loading checkpoint '{}'".format(sets.resume_path))
+                    checkpoint = torch.load(sets.resume_path)
+                    model.load_state_dict(checkpoint['state_dict'], strict=False)
+                    optimizer.load_state_dict(checkpoint['optimizer'])
+                    log.info("=> loaded checkpoint '{}' (epoch {})"
+                    .format(sets.resume_path, checkpoint['epoch']))
+
+            train_data_loader = DataLoader(dataset_train, batch_size=sets.batch_size, shuffle=True, num_workers=sets.num_workers, pin_memory=sets.pin_memory)
+            val_data_loader = DataLoader(dataset_val, batch_size=sets.batch_size, shuffle=False, num_workers=sets.num_workers, pin_memory=sets.pin_memory)
+            
+            train(data_loader=train_data_loader, validation_loader=val_data_loader, 
+                model=model, optimizer=optimizer, total_epochs=sets.n_epochs, 
+                save_interval=sets.save_intervals, save_folder=sets.save_folder, 
+                sets=sets, patience=patience, lr_schedule_values=lr_schedule_values)   
+        else: # Manual train-val split is used
+            full_dataset = CustomTumorDataset(sets.data_root, sets)
+            train_ids = [0,1,2,3,4,5,6,9,10,11,14,15,16,17,18,19,20,22,23,24,31,32,33,35,36,37,38,40,41,42,43,44,45,46,47,49,51,54,55,56,57,60,61,62,63,65,66,68,70,71,72,73,74,78,79,80,83,84,85,86,88,89,90,91,93,94,95,96,97,98,99,100,101,102,103,106,108,109,110,111,112,113,115,116,117,118,119,120,124,125,126,127,128,133,134,139,142,143,144,145,146,148,151,153,155,156,157,158,159,160,161,162,167,168]
+            val_ids = [7,8,12,13,21,25,26,27,28,29,30,34,39,48,50,52,53,58,59,64,67,69,75,76,77,81,82,87,92,104,105,107,114,121,122,123,129,130,131,132,135,136,137,138,140,141,147,149,150,152,154,163,164,165,166,169]
+            tb_log_dir = ""
+            now = datetime.now() 
+            date_time = now.strftime("%Y-%m-%d_%H-%M-%S")
+            train_with_aug = "no_aug"
+            if sets.with_augmentation:
+                train_with_aug = "with_aug"
+          
+            if sets.model == 'resnet':
+               tb_log_dir = "runs/"+sets.model+str(sets.model_depth)+"_"+train_with_aug+"_"+date_time
+            elif sets.model == 'convnext':
+                tb_log_dir = "runs/"+sets.model+sets.convnext_size+"_"+train_with_aug+"_"+date_time
+            writer = SummaryWriter(log_dir=tb_log_dir)
+            
+            log.info("train_ids:{}".format(train_ids))
+            log.info("val_ids:{}".format(val_ids))
+            train_subsampler = torch.utils.data.SubsetRandomSampler(train_ids)
+            val_subsampler = torch.utils.data.SubsetRandomSampler(val_ids)
+
+            train_data_loader = DataLoader(full_dataset, batch_size=sets.batch_size, 
+                                        sampler=train_subsampler, num_workers=sets.num_workers, 
+                                        pin_memory=sets.pin_memory)
+            val_data_loader = DataLoader(full_dataset, batch_size=sets.batch_size, 
+                                        sampler=val_subsampler, num_workers=sets.num_workers, 
+                                        pin_memory=sets.pin_memory)
+            
+            model, parameters = generate_model(sets) #3D Resnet 18
+            log.info (model)
+            model_parameters = filter(lambda p: p.requires_grad, model.parameters())
+            params = sum([np.prod(p.size()) for p in model_parameters])
+            log.info("The network has {} trainable parameters".format(params))
+            log.info(
             summary(model, 
                     input_size=(sets.batch_size,2,256,256,64), 
                     col_names=["input_size",
@@ -193,81 +316,51 @@ if __name__ == '__main__':
                     mode="train",
                     depth=4,
                     verbose=1))
-        # Compile model for faster training
-        # model = torch.compile(model)
-        
-        dataset_train = CustomTumorDataset(sets.data_root, sets)
-        dataset_val = CustomTumorDataset(sets.data_root_val, sets)
-        print('Training set has {} instances'.format(len(dataset_train)))
-        print('Validation set has {} instances'.format(len(dataset_val)))
-        
-        tb_log_dir = ""
-        now = datetime.now() 
-        date_time = now.strftime("%Y-%m-%d_%H-%M-%S")
-        train_with_aug = "no_aug"
-        if sets.with_augmentation:
-            train_with_aug = "with_aug"
-        
-        if sets.model == 'resnet':
-            tb_log_dir = "runs/"+sets.model+str(sets.model_depth)+"_"+train_with_aug+"_"+date_time
-        elif sets.model == 'convnext':
-            tb_log_dir = "runs/"+sets.model+sets.convnext_size+"_"+train_with_aug+"_"+date_time
-        writer = SummaryWriter(log_dir=tb_log_dir)
-        
-        # optimizer
-        if (not sets.ci_test) and sets.pretrain_path:
-            params = [
-                    { 'params': parameters['base_parameters'], 'lr': sets.learning_rate },
-                    { 'params': parameters['new_parameters'], 'lr': sets.learning_rate*100 }
-            ]
-        else:
-            params = [{'params': parameters, 'lr': sets.learning_rate}]
-        # optimizer = torch.optim.Adam(params,
-        #                              lr=sets.learning_rate,
-        #                              betas=(0.9,0.999),
-        #                              eps=1e-08,
-        #                              weight_decay=1e-3,
-        #                              amsgrad=False)
-        # optimizer = torch.optim.SGD(params, momentum=0.9, weight_decay=1e-3)
-        optimizer = torch.optim.AdamW(params, eps=1e-8, lr=sets.learning_rate, weight_decay=0.05)
-        # scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
-        print("Use Cosine LR scheduler")
-        num_training_steps_per_epoch = (len(dataset_train) // sets.batch_size) + 1
-        print("num_training_steps_per_epoch: " + str(num_training_steps_per_epoch))
-        lr_schedule_values = schedulers.cosine_scheduler(
-            sets.learning_rate, 1e-6, sets.n_epochs, num_training_steps_per_epoch,
-            warmup_epochs=20, warmup_steps=-1,
-        )
-        
-        # scheduler = lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
-        #                                     T_0 = 20,# Number of iterations for the first restart
-        #                                     T_mult = 1, # A factor increases TiTi​ after a restart
-        #                                     eta_min = 1e-6) # Minimum learning rate
-        
-        # scheduler = lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
-        #                                     T_0 = sets.n_epochs,# Number of iterations for the first restart
-        #                                     T_mult = 1, # A factor increases TiTi​ after a restart
-        #                                     eta_min = 1e-6) # Minimum learning rate
-        
-        # scheduler = lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=sets.n_epochs, eta_min=1e-6)
+            # Compile model for faster training
+            # model = torch.compile(model, mode="max-autotune")
+            # optimizer
+            if (not sets.ci_test) and sets.pretrain_path:
+                params = [
+                        { 'params': parameters['base_parameters'], 'lr': sets.learning_rate },
+                        { 'params': parameters['new_parameters'], 'lr': sets.learning_rate*100 }
+                ]
+            else:
+                params = [{'params': parameters, 'lr': sets.learning_rate}]
+            # optimizer = torch.optim.Adam(params,
+            #                              lr=sets.learning_rate,
+            #                              betas=(0.9,0.999),
+            #                              eps=1e-08,
+            #                              weight_decay=1e-3,
+            #                              amsgrad=False)
+            # optimizer = torch.optim.SGD(params, momentum=0.9, weight_decay=1e-3)
+            optimizer = torch.optim.AdamW(params, eps=1e-8, lr=sets.learning_rate, weight_decay=0.05)
+            print("Use Cosine LR scheduler")
+            num_training_steps_per_epoch = (len(train_ids) // sets.batch_size) + 1
+            print("num_training_steps_per_epoch: " + str(num_training_steps_per_epoch))
+            lr_schedule_values = schedulers.cosine_scheduler(
+                sets.learning_rate, 1e-6, sets.n_epochs, num_training_steps_per_epoch,
+                warmup_epochs=20, warmup_steps=-1,
+            )
             
-        # train from resume
-        if sets.resume_path:
-            if os.path.isfile(sets.resume_path):
-                log.info("=> loading checkpoint '{}'".format(sets.resume_path))
-                checkpoint = torch.load(sets.resume_path)
-                model.load_state_dict(checkpoint['state_dict'], strict=False)
-                optimizer.load_state_dict(checkpoint['optimizer'])
-                log.info("=> loaded checkpoint '{}' (epoch {})"
-                .format(sets.resume_path, checkpoint['epoch']))
+           
+            # train from resume
+            if sets.resume_path:
+                if os.path.isfile(sets.resume_path):
+                    log.info("=> loading checkpoint '{}'".format(sets.resume_path))
+                    checkpoint = torch.load(sets.resume_path)
+                    model.load_state_dict(checkpoint['state_dict'], strict=False)
+                    optimizer.load_state_dict(checkpoint['optimizer'])
+                    log.info("=> loaded checkpoint '{}' (epoch {})"
+                    .format(sets.resume_path, checkpoint['epoch']))
 
-        train_data_loader = DataLoader(dataset_train, batch_size=sets.batch_size, shuffle=True, num_workers=sets.num_workers, pin_memory=sets.pin_memory)
-        val_data_loader = DataLoader(dataset_val, batch_size=sets.batch_size, shuffle=False, num_workers=sets.num_workers, pin_memory=sets.pin_memory)
-        
-        train(data_loader=train_data_loader, validation_loader=val_data_loader, 
-            model=model, optimizer=optimizer, total_epochs=sets.n_epochs, 
-            save_interval=sets.save_intervals, save_folder=sets.save_folder, 
-            sets=sets, patience=patience, lr_schedule_values=lr_schedule_values)   
+            
+            # training
+            train(data_loader=train_data_loader, validation_loader=val_data_loader, 
+                  model=model, optimizer=optimizer, total_epochs=sets.n_epochs, 
+                  save_interval=sets.save_intervals, save_folder=sets.save_folder, 
+                  sets=sets, patience=patience, lr_schedule_values=lr_schedule_values)   
+            writer.close()
+
     else: # k-fold cross validation
         full_dataset = CustomTumorDataset(sets.data_root, sets)
         k_folds = sets.fold_num

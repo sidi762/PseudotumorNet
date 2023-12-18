@@ -93,17 +93,41 @@ def parse_opts():
     parser.add_argument(
         '--no_cuda', action='store_true', help='If true, cuda is not used.')
     parser.add_argument(
-        '--with_augmentation', action='store_true', help='If true, data after brightness augmentation is used.')
+        '--with_augmentation', 
+        action='store_true', 
+        help='If true, data after brightness augmentation is used.')
     parser.add_argument(
-        '--k_fold_cross_validation', action='store_true', help='If true, k-fold cv is used.')
+        '--k_fold_cross_validation', 
+        action='store_true', 
+        help='If true, k-fold cv is used.')
     parser.set_defaults(no_cuda=False)
     parser.set_defaults(with_augmentation=False)
     parser.set_defaults(k_fold_cross_validation=False)
     parser.add_argument(
-        '--export_preprocessed_image', action='store_true', help='If true, image after preprocessing will be saved.')
+        '--export_preprocessed_image', 
+        action='store_true', 
+        help='If true, image after preprocessing will be saved.')
     parser.set_defaults(export_preprocessed_image=False)
     parser.add_argument(
-        '--preprocessed_image_export_path', type=str, default='./preprocessed_image', help='Path for exporting preprocessed images.')
+        '--preprocessed_image_export_path', 
+        type=str,
+        default='./preprocessed_image',
+        help='Path for exporting preprocessed images.')
+    parser.add_argument(
+        '--manual_train_val_split', 
+        action='store_true', 
+        help='If true, manual train-test split is used.')
+    parser.set_defaults(manual_train_val_split=False)
+    parser.add_argument(
+        '--train_ids',
+        default=[],
+        type=list,
+        help='images for train set, only valid when manual_train_val_split is set to True')
+    parser.add_argument(
+        '--val_ids',
+        default=[],
+        type=list,
+        help='images for train set, only valid when manual_train_val_split is set to True')
     parser.add_argument(
         '--fold_num',
         default='5',
